@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+
+<meta charset="UTF-8" />
+
+<link href="/css/reset.css" th:href="@{/css/reset.css}" rel="stylesheet" />
+<link href="/css/style.css" th:href="@{/css/style.css}" rel="stylesheet" />
+<title>ramen</title>
+
+</head>
+
+<body>
+
+<header th:insert="fragments/page_header::pageHeader"></header>
+
+<script	th:inline="javascript">
+/*<![CDATA[*/
+$(() => {
+	// 購入個数と金額の合計を算出し、合計欄に設定する
+	calcTotalArea();
+	
+	$('#deleteButton').on('click', () => {
+		let checkedList = $('.checkList:checked');	// チェックされたチェックボックスのオブジェクト
+		let checkedIdList = []; // チェックされたチェックボックスのValueを入れるリスト
+		for (checked of checkedList) {
+			checkedIdList.push($(checked).val());
+		}
+		deleteCart(checkedList, checkedIdList);
+	});
+
+	$('.checkList').on('change', changeDisable);
+	
+	$('#settlementButton').on('click', function() {
+		let userId = /*[[${loginSession.getUserId()}]]*/ 0;
+		if (userId == 0 && isEmpty($('#hiddenUserName').val())) {
+			alert("ログインしてください。");
+			return false;
+		}
+	});
+	
+});
+
+function deleteCart(checkedList, checkedIdList) {
+	$.ajax({
+		type: 'POST',
+		url: '/crocus/cart/delete',
+		data: JSON.stringify({'checkedIdList': checkedIdList}),
+		datatype: 'json',
+		contentType: 'application/json',
+	})
+	.then((result) => {
+		for (checked of checkedList) {
+			$(checked).parent().parent().remove();
+		}
+		
+		let checkList = $('.checkList');
+		if (checkList.length == 0) {
+			location.replace('/crocus/cart/');
+		}
+		// 購入個数と金額の合計を算出し、合計欄に設定する
+		calcTotalArea();
+		// 削除ボタン非活性
+		changeDisable();
+	}, () => {
+		alert('Error: ajax connection failed.');
+	});		
+}
+
+let changeDisable = (event) => {
+	let checkList = $('.checkList');
+	let disabled = true;
+	for (let check of checkList) {
+		if($(check).prop('checked')) {
+			disabled = false;
+			break;
+		}
+	}
+	$("#deleteButton").prop("disabled", disabled);
+}
+
+function calcTotalArea() {
+	let subtotalList = $('.subtotal');
+	let countList = $('.productCount');
+	let totalPrice = 0;
+	let totalCount = 0;
+	
+	$(subtotalList).each((i, subtotal) => {
+		totalPrice += parseInt($(subtotal).text());
+		totalCount += parseInt($(countList[i]).text());
+	});
+	
+	$('#totalPrice').text(totalPrice);
+	$('#totalCount').text(totalCount);
+}
+/*]]>*/
+</script>
+
+<main>
+
+	<div class="container cart">
+		<h2>カート</h2>
+	
+		<div class="noData"	th:if="${carts == null || carts.size() == 0}">
+			<p class="info">カート情報はありません。</p>
+		</div>
+		
+		<table class="cart"	th:if="${carts != null && carts.size() > 0}">
+			<tr>
+				<th>選択</th><th>画像</th><th>商品名</th><th>価格(円)</th><th>個数</th><th>小計(円)</th>
+			</tr>
+			<tr th:each="cart: ${carts}">
+				<td><input type="checkbox" name="id"	class="checkList" th:value="${cart.id}"/></td>
+				<td><img class="itemImage"	th:src="@{{imagePath} (imagePath=${cart.imageFullPath}) }" /></td>
+				<td th:text="${cart.productName}" />
+				<td class="number" th:text="${cart.price}" />
+				<td class="productCount number" th:text="${cart.productCount}" />
+				<td class="subtotal number" th:text="${cart.subtotal}" />
+			</tr>
+			<tr>
+				<td class="totalArea"></td>
+				<td class="totalArea"></td>
+				<td class="totalArea">合計(円)</td>
+				<td class="totalArea"></td>
+				<td class="totalArea" id="totalCount"></td>
+				<td class="totalArea" id="totalPrice"></td>
+			</tr>
+		</table>
+		<div class="buttonArea"	th:if="${carts != null && carts.size() > 0}">
+			<button id="deleteButton" disabled>削除</button>
+			<form action="/crocus/settlement/">
+				<button type="submit" id="settlementButton">購入</button>
+			</form>
+		</div>
+	
+	</div>
+
+</main>
+</body>
+</html>
